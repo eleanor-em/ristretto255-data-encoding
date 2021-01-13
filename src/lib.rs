@@ -1,9 +1,6 @@
-extern crate curve25519_dalek;
-extern crate rand;
+#![no_std]
 
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
-
-use rand::{thread_rng, RngCore};
 
 /// Encodes up to 30 bytes as an element of the ristretto255 group.
 ///
@@ -38,6 +35,7 @@ use rand::{thread_rng, RngCore};
 /// failure probability to 2**(lg(3/4)*128*64) ~= 2**(-3400) ~= 0.
 ///
 /// Minor edits by Eleanor McMurtry.
+///
 /// # Panics
 /// * if data.len() > 30
 /// * with very, very low probability otherwise
@@ -61,4 +59,20 @@ pub fn point_as_bytes(point: RistrettoPoint) -> [u8; 30] {
     let mut bytes = [0u8; 30];
     bytes.copy_from_slice(&point.compress().to_bytes()[1..31]);
     bytes
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::{thread_rng, RngCore};
+    use crate::{point_as_bytes, bytes_as_point};
+
+    #[test]
+    fn encode_decode() {
+        let mut rng = thread_rng();
+        let mut bytes = [0u8; 30];
+        for _ in 0..100 {
+            rng.fill_bytes(&mut bytes);
+            assert_eq!(bytes, point_as_bytes(bytes_as_point(&bytes)));
+        }
+    }
 }
