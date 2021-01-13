@@ -36,7 +36,12 @@ use rand::{thread_rng, RngCore};
 /// trials, we can begin incrementing the high byte from 0 (its initial
 /// value) by 1s up to 64, giving 128*64 trials in total and cutting the
 /// failure probability to 2**(lg(3/4)*128*64) ~= 2**(-3400) ~= 0.
-fn encode_bytes_in_point(data: &[u8]) -> (RistrettoPoint, usize) {
+///
+/// Minor edits by Eleanor McMurtry.
+/// # Panics
+/// * if data.len() > 30
+/// * with very, very low probability otherwise
+pub fn bytes_as_point(data: &[u8]) -> RistrettoPoint {
     assert!(data.len() <= 30);
     let mut bytes = [0u8; 32];
     bytes[1..1 + data.len()].copy_from_slice(data);
@@ -45,35 +50,15 @@ fn encode_bytes_in_point(data: &[u8]) -> (RistrettoPoint, usize) {
         for i in 0..128 {
             bytes[0] = 2 * i as u8;
             if let Some(point) = CompressedRistretto(bytes).decompress() {
-                return (point, i + j * 128);
+                return point;
             }
         }
     }
     panic!("a very unlikely event occurred");
 }
 
-fn run_trial() -> usize {
+pub fn point_as_bytes(point: RistrettoPoint) -> [u8; 30] {
     let mut bytes = [0u8; 30];
-    thread_rng().fill_bytes(&mut bytes);
-
-    encode_bytes_in_point(&bytes).1
-}
-
-fn collect_data(samples: usize) -> Vec<(usize, usize)> {
-    let mut trial_counts = vec![0usize; 128];
-    for _ in 0..samples {
-        trial_counts[run_trial() as usize] += 1;
-    }
-    trial_counts.iter().cloned().enumerate().collect()
-}
-
-fn main() {
-    let data = b"hello world";
-    println!("{:?}", encode_bytes_in_point(data).0.compress());
-    let data = b"hello world 2: hello worlder";
-    println!("{:?}", encode_bytes_in_point(data).0.compress());
-    let data = b"hello world 3: another world";
-    println!("{:?}", encode_bytes_in_point(data).0.compress());
-    let data = collect_data(10_000);
-    println!("{:?}", data);
+    bytes.copy_from_slice(&point.compress().to_bytes()[1..31]);
+    bytes
 }
